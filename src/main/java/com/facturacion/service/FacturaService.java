@@ -23,7 +23,7 @@ public class FacturaService {
     @Autowired
     private ProductoRepository productoRepository;
     
-    private static final double IMPUESTO_PORCENTAJE = 0.19; // 19% IVA
+    private static final double IMPUESTO_PORCENTAJE = 0.21; // 21% IVA
     
     public List<Factura> findAll() {
         return facturaRepository.findAllOrderByFechaDesc();

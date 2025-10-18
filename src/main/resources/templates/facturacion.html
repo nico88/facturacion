@@ -88,7 +88,7 @@
                     </div>
                     <div class="row">
                         <div class="col-6">
-                            <strong>Impuestos (19%):</strong>
+                            <strong>Impuestos (21%):</strong>
                         </div>
                         <div class="col-6 text-end">
                             <span id="impuestos">$0</span>
@@ -293,7 +293,7 @@
 
         function calcularTotales() {
             const subtotal = facturaItems.reduce((sum, item) => sum + (item.cantidad * item.precioUnitario), 0);
-            const impuestos = subtotal * 0.19;
+            const impuestos = subtotal * 0.21;
             const total = subtotal + impuestos;
 
             document.getElementById('subtotal').textContent = `$${subtotal.toLocaleString()}`;
