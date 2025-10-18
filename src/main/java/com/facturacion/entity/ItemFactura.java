@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
 @Table(name = "items_factura")
@@ -18,10 +20,12 @@ public class ItemFactura {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "factura_id", nullable = false)
+    @JsonBackReference
     private Factura factura;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "producto_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Producto producto;
     
     @Column(nullable = false)
