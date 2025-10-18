@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Productos - Sistema de Facturación</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .product-card {
+            transition: transform 0.2s;
+        }
+        .product-card:hover {
+            transform: translateY(-2px);
+        }
+        .stock-bajo {
+            border-left: 4px solid #dc3545;
+        }
+        .stock-medio {
+            border-left: 4px solid #ffc107;
+        }
+        .stock-alto {
+            border-left: 4px solid #28a745;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-beer me-2"></i>
+                Sistema de Facturación
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/"><i class="fas fa-home me-1"></i>Inicio</a>
+                <a class="nav-link active" href="/productos"><i class="fas fa-box me-1"></i>Productos</a>
+                <a class="nav-link" href="/facturacion"><i class="fas fa-receipt me-1"></i>Facturación</a>
+                <a class="nav-link" href="/reportes"><i class="fas fa-chart-bar me-1"></i>Reportes</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <h2><i class="fas fa-box me-2"></i>Gestión de Productos</h2>
+            </div>
+            <div class="col-md-6 text-end">
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#productoModal">
+                    <i class="fas fa-plus me-1"></i>Nuevo Producto
+                </button>
+            </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <select class="form-select" id="filtroCategoria">
+                    <option value="">Todas las categorías</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <input type="text" class="form-control" id="buscarProducto" placeholder="Buscar producto...">
+            </div>
+            <div class="col-md-4">
+                <button class="btn btn-outline-secondary" onclick="cargarProductos()">
+                    <i class="fas fa-search me-1"></i>Buscar
+                </button>
+            </div>
+        </div>
+
+        <!-- Productos Grid -->
+        <div class="row" id="productosContainer">
+            <!-- Los productos se cargarán aquí -->
+        </div>
+    </div>
+
+    <!-- Modal para agregar/editar producto -->
+    <div class="modal fade" id="productoModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">Nuevo Producto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="productoForm">
+                        <input type="hidden" id="productoId">
+                        <div class="mb-3">
+                            <label class="form-label">Nombre</label>
+                            <input type="text" class="form-control" id="nombre" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Categoría</label>
+                            <select class="form-select" id="categoria" required>
+                                <option value="">Seleccionar categoría</option>
+                                <option value="Cerveza">Cerveza</option>
+                                <option value="Vino">Vino</option>
+                                <option value="Licor">Licor</option>
+                                <option value="Whisky">Whisky</option>
+                                <option value="Vodka">Vodka</option>
+                                <option value="Ron">Ron</option>
+                                <option value="Tequila">Tequila</option>
+                                <option value="Champagne">Champagne</option>
+                                <option value="Otros">Otros</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Precio</label>
+                            <input type="number" class="form-control" id="precio" step="0.01" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Stock</label>
+                            <input type="number" class="form-control" id="stock" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Marca</label>
+                            <input type="text" class="form-control" id="marca">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Tamaño</label>
+                            <input type="text" class="form-control" id="tamaño" placeholder="ej: 330ml, 750ml">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Descripción</label>
+                            <textarea class="form-control" id="descripcion" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="guardarProducto()">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let productos = [];
+        let categorias = [];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            cargarCategorias();
+            cargarProductos();
+        });
+
+        async function cargarCategorias() {
+            try {
+                const response = await fetch('/api/productos/categorias');
+                categorias = await response.json();
+                
+                const select = document.getElementById('filtroCategoria');
+                select.innerHTML = '<option value="">Todas las categorías</option>';
+                categorias.forEach(categoria => {
+                    select.innerHTML += `<option value="${categoria}">${categoria}</option>`;
+                });
+            } catch (error) {
+                console.error('Error cargando categorías:', error);
+            }
+        }
+
+        async function cargarProductos() {
+            try {
+                const response = await fetch('/api/productos');
+                productos = await response.json();
+                mostrarProductos(productos);
+            } catch (error) {
+                console.error('Error cargando productos:', error);
+            }
+        }
+
+        function mostrarProductos(productosFiltrados) {
+            const container = document.getElementById('productosContainer');
+            container.innerHTML = '';
+
+            productosFiltrados.forEach(producto => {
+                const stockClass = producto.stock < 10 ? 'stock-bajo' : 
+                                 producto.stock < 50 ? 'stock-medio' : 'stock-alto';
+                
+                const card = `
+                    <div class="col-md-4 mb-4">
+                        <div class="card product-card ${stockClass}">
+                            <div class="card-body">
+                                <h5 class="card-title">${producto.nombre}</h5>
+                                <p class="card-text">
+                                    <strong>Categoría:</strong> ${producto.categoria}<br>
+                                    <strong>Precio:</strong> $${producto.precio.toLocaleString()}<br>
+                                    <strong>Stock:</strong> ${producto.stock} unidades<br>
+                                    ${producto.marca ? `<strong>Marca:</strong> ${producto.marca}<br>` : ''}
+                                    ${producto.tamaño ? `<strong>Tamaño:</strong> ${producto.tamaño}<br>` : ''}
+                                </p>
+                                <div class="btn-group w-100">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="editarProducto(${producto.id})">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-success" onclick="actualizarStock(${producto.id})">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="eliminarProducto(${producto.id})">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += card;
+            });
+        }
+
+        function editarProducto(id) {
+            const producto = productos.find(p => p.id === id);
+            if (producto) {
+                document.getElementById('modalTitle').textContent = 'Editar Producto';
+                document.getElementById('productoId').value = producto.id;
+                document.getElementById('nombre').value = producto.nombre;
+                document.getElementById('categoria').value = producto.categoria;
+                document.getElementById('precio').value = producto.precio;
+                document.getElementById('stock').value = producto.stock;
+                document.getElementById('marca').value = producto.marca || '';
+                document.getElementById('tamaño').value = producto.tamaño || '';
+                document.getElementById('descripcion').value = producto.descripcion || '';
+                
+                new bootstrap.Modal(document.getElementById('productoModal')).show();
+            }
+        }
+
+        function actualizarStock(id) {
+            const cantidad = prompt('Ingrese la cantidad a agregar al stock:');
+            if (cantidad && !isNaN(cantidad)) {
+                fetch(`/api/productos/${id}/stock?cantidad=${cantidad}`, {
+                    method: 'PUT'
+                })
+                .then(response => {
+                    if (response.ok) {
+                        cargarProductos();
+                        alert('Stock actualizado correctamente');
+                    } else {
+                        alert('Error al actualizar el stock');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error al actualizar el stock');
+                });
+            }
+        }
+
+        function eliminarProducto(id) {
+            if (confirm('¿Está seguro de eliminar este producto?')) {
+                fetch(`/api/productos/${id}`, {
+                    method: 'DELETE'
+                })
+                .then(response => {
+                    if (response.ok) {
+                        cargarProductos();
+                        alert('Producto eliminado correctamente');
+                    } else {
+                        alert('Error al eliminar el producto');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error al eliminar el producto');
+                });
+            }
+        }
+
+        function guardarProducto() {
+            const producto = {
+                id: document.getElementById('productoId').value || null,
+                nombre: document.getElementById('nombre').value,
+                categoria: document.getElementById('categoria').value,
+                precio: parseFloat(document.getElementById('precio').value),
+                stock: parseInt(document.getElementById('stock').value),
+                marca: document.getElementById('marca').value,
+                tamaño: document.getElementById('tamaño').value,
+                descripcion: document.getElementById('descripcion').value
+            };
+
+            const url = producto.id ? `/api/productos/${producto.id}` : '/api/productos';
+            const method = producto.id ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(producto)
+            })
+            .then(response => {
+                if (response.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('productoModal')).hide();
+                    cargarProductos();
+                    document.getElementById('productoForm').reset();
+                    alert('Producto guardado correctamente');
+                } else {
+                    alert('Error al guardar el producto');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al guardar el producto');
+            });
+        }
+
+        // Filtros
+        document.getElementById('filtroCategoria').addEventListener('change', function() {
+            const categoria = this.value;
+            const busqueda = document.getElementById('buscarProducto').value;
+            filtrarProductos(categoria, busqueda);
+        });
+
+        document.getElementById('buscarProducto').addEventListener('input', function() {
+            const categoria = document.getElementById('filtroCategoria').value;
+            const busqueda = this.value;
+            filtrarProductos(categoria, busqueda);
+        });
+
+        function filtrarProductos(categoria, busqueda) {
+            let productosFiltrados = productos;
+
+            if (categoria) {
+                productosFiltrados = productosFiltrados.filter(p => p.categoria === categoria);
+            }
+
+            if (busqueda) {
+                productosFiltrados = productosFiltrados.filter(p => 
+                    p.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+                    p.marca?.toLowerCase().includes(busqueda.toLowerCase())
+                );
+            }
+
+            mostrarProductos(productosFiltrados);
+        }
+
+        // Limpiar formulario al cerrar modal
+        document.getElementById('productoModal').addEventListener('hidden.bs.modal', function() {
+            document.getElementById('productoForm').reset();
+            document.getElementById('modalTitle').textContent = 'Nuevo Producto';
+        });
+    </script>
+</body>
+</html>

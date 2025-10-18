@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reportes - Sistema de Facturación</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .report-card {
+            border-left: 4px solid #007bff;
+            background: #f8f9fa;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-beer me-2"></i>
+                Sistema de Facturación
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/"><i class="fas fa-home me-1"></i>Inicio</a>
+                <a class="nav-link" href="/productos"><i class="fas fa-box me-1"></i>Productos</a>
+                <a class="nav-link" href="/facturacion"><i class="fas fa-receipt me-1"></i>Facturación</a>
+                <a class="nav-link active" href="/reportes"><i class="fas fa-chart-bar me-1"></i>Reportes</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Filtros de Fecha -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-calendar me-2"></i>Filtros de Fecha</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label class="form-label">Fecha Inicio</label>
+                                <input type="date" class="form-control" id="fechaInicio">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Fecha Fin</label>
+                                <input type="date" class="form-control" id="fechaFin">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">&nbsp;</label>
+                                <button class="btn btn-primary w-100" onclick="cargarReportes()">
+                                    <i class="fas fa-search me-1"></i>Generar Reportes
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estadísticas Generales -->
+        <div class="row mb-4" id="estadisticasGenerales">
+            <!-- Se cargarán las estadísticas aquí -->
+        </div>
+
+        <!-- Reporte de Ventas -->
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-line me-2"></i>Ventas por Categoría</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="ventasCategoriaChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-trophy me-2"></i>Productos Más Vendidos</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="productosMasVendidos">
+                            <!-- Se cargarán los productos aquí -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reporte de Stock -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-exclamation-triangle me-2"></i>Productos con Stock Bajo</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="stockBajo">
+                            <!-- Se cargarán los productos aquí -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-boxes me-2"></i>Inventario Completo</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="inventarioCompleto" style="max-height: 400px; overflow-y: auto;">
+                            <!-- Se cargará el inventario aquí -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let ventasCategoriaChart = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Establecer fechas por defecto (último mes)
+            const hoy = new Date();
+            const haceUnMes = new Date();
+            haceUnMes.setMonth(haceUnMes.getMonth() - 1);
+            
+            document.getElementById('fechaInicio').value = haceUnMes.toISOString().split('T')[0];
+            document.getElementById('fechaFin').value = hoy.toISOString().split('T')[0];
+            
+            cargarReportes();
+        });
+
+        async function cargarReportes() {
+            const fechaInicio = document.getElementById('fechaInicio').value;
+            const fechaFin = document.getElementById('fechaFin').value;
+            
+            if (!fechaInicio || !fechaFin) {
+                alert('Por favor seleccione las fechas');
+                return;
+            }
+
+            const fechaInicioISO = new Date(fechaInicio + 'T00:00:00').toISOString();
+            const fechaFinISO = new Date(fechaFin + 'T23:59:59').toISOString();
+
+            try {
+                // Cargar estadísticas generales
+                await cargarEstadisticasGenerales(fechaInicioISO, fechaFinISO);
+                
+                // Cargar reporte de ventas
+                await cargarReporteVentas(fechaInicioISO, fechaFinISO);
+                
+                // Cargar reporte de stock
+                await cargarReporteStock();
+                
+            } catch (error) {
+                console.error('Error cargando reportes:', error);
+                alert('Error al cargar los reportes');
+            }
+        }
+
+        async function cargarEstadisticasGenerales(fechaInicio, fechaFin) {
+            try {
+                const response = await fetch(`/api/facturas/reporte/ventas?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`);
+                const data = await response.json();
+                
+                const container = document.getElementById('estadisticasGenerales');
+                container.innerHTML = `
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <h3>$${data.totalVentas.toLocaleString()}</h3>
+                            <p class="mb-0">Total Ventas</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <h3>${data.cantidadFacturas}</h3>
+                            <p class="mb-0">Facturas Emitidas</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <h3>$${data.cantidadFacturas > 0 ? (data.totalVentas / data.cantidadFacturas).toFixed(0) : 0}</h3>
+                            <p class="mb-0">Promedio por Factura</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <h3>${data.cantidadFacturas > 0 ? Math.ceil(data.cantidadFacturas / 30) : 0}</h3>
+                            <p class="mb-0">Facturas por Día</p>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error cargando estadísticas:', error);
+            }
+        }
+
+        async function cargarReporteVentas(fechaInicio, fechaFin) {
+            try {
+                const response = await fetch(`/api/reportes/ventas?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`);
+                const data = await response.json();
+                
+                // Crear gráfico de ventas por categoría
+                crearGraficoVentasCategoria(data.ventasPorCategoria);
+                
+                // Mostrar productos más vendidos
+                mostrarProductosMasVendidos(data.productosMasVendidos);
+                
+            } catch (error) {
+                console.error('Error cargando reporte de ventas:', error);
+            }
+        }
+
+        function crearGraficoVentasCategoria(ventasPorCategoria) {
+            const ctx = document.getElementById('ventasCategoriaChart').getContext('2d');
+            
+            if (ventasCategoriaChart) {
+                ventasCategoriaChart.destroy();
+            }
+            
+            const categorias = Object.keys(ventasPorCategoria);
+            const valores = Object.values(ventasPorCategoria);
+            
+            ventasCategoriaChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: categorias,
+                    datasets: [{
+                        data: valores,
+                        backgroundColor: [
+                            '#FF6384',
+                            '#36A2EB',
+                            '#FFCE56',
+                            '#4BC0C0',
+                            '#9966FF',
+                            '#FF9F40',
+                            '#FF6384',
+                            '#C9CBCF'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        function mostrarProductosMasVendidos(productos) {
+            const container = document.getElementById('productosMasVendidos');
+            container.innerHTML = '';
+            
+            if (productos.length === 0) {
+                container.innerHTML = '<p class="text-muted">No hay datos de ventas</p>';
+                return;
+            }
+            
+            productos.slice(0, 5).forEach((producto, index) => {
+                const card = `
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <strong>${index + 1}. ${producto[0].nombre}</strong><br>
+                            <small class="text-muted">${producto[0].categoria}</small>
+                        </div>
+                        <span class="badge bg-primary">${producto[1]} unidades</span>
+                    </div>
+                `;
+                container.innerHTML += card;
+            });
+        }
+
+        async function cargarReporteStock() {
+            try {
+                const response = await fetch('/api/reportes/stock');
+                const data = await response.json();
+                
+                mostrarStockBajo(data.productosStockBajo);
+                mostrarInventarioCompleto(data.todosProductos);
+                
+            } catch (error) {
+                console.error('Error cargando reporte de stock:', error);
+            }
+        }
+
+        function mostrarStockBajo(productos) {
+            const container = document.getElementById('stockBajo');
+            container.innerHTML = '';
+            
+            if (productos.length === 0) {
+                container.innerHTML = '<p class="text-success"><i class="fas fa-check-circle me-1"></i>No hay productos con stock bajo</p>';
+                return;
+            }
+            
+            productos.forEach(producto => {
+                const card = `
+                    <div class="alert alert-warning d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>${producto.nombre}</strong><br>
+                            <small>${producto.categoria} | ${producto.marca || 'Sin marca'}</small>
+                        </div>
+                        <span class="badge bg-warning">${producto.stock} unidades</span>
+                    </div>
+                `;
+                container.innerHTML += card;
+            });
+        }
+
+        function mostrarInventarioCompleto(productos) {
+            const container = document.getElementById('inventarioCompleto');
+            container.innerHTML = '';
+            
+            productos.forEach(producto => {
+                const stockClass = producto.stock < 10 ? 'text-danger' : 
+                                 producto.stock < 50 ? 'text-warning' : 'text-success';
+                
+                const card = `
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
+                        <div>
+                            <strong>${producto.nombre}</strong><br>
+                            <small class="text-muted">${producto.categoria} | $${producto.precio.toLocaleString()}</small>
+                        </div>
+                        <div class="text-end">
+                            <span class="${stockClass}"><strong>${producto.stock}</strong></span><br>
+                            <small class="text-muted">unidades</small>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += card;
+            });
+        }
+    </script>
+</body>
+</html>
